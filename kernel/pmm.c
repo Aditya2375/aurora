@@ -11,9 +11,10 @@
 #define E820_TABLE_ADDR 0x00005000u
 #endif
 #define MAX_E820        64
-#define BITMAP_LIMIT    (512u * 1024u * 1024u)          /* manage the low 512 MiB */
-#define MAX_BLOCKS      (BITMAP_LIMIT / PMM_BLOCK_SIZE)  /* 131072 */
-#define BITMAP_BYTES    (MAX_BLOCKS / 8)                 /* 16 KiB */
+/* manage only what the loader identity-maps: the low 128 MiB (4 MiB pages) */
+#define BITMAP_LIMIT    (128u * 1024u * 1024u)
+#define MAX_BLOCKS      (BITMAP_LIMIT / PMM_BLOCK_SIZE)  /* 32768 */
+#define BITMAP_BYTES    (MAX_BLOCKS / 8)                 /* 4 KiB */
 
 #ifndef AURORA_E820_ENTRY_DEFINED
 #define AURORA_E820_ENTRY_DEFINED
