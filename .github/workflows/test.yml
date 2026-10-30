@@ -1,0 +1,15 @@
+name: test
+on: [push, pull_request]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y nasm gcc make binutils qemu-system-x86
+      - name: Build disk image
+        run: make
+      - name: Host unit tests
+        run: ./tests/host/run_tests.sh
+      - name: QEMU boot test
+        run: ./tests/run-qemu-tests.sh
