@@ -75,5 +75,29 @@ int main(void) {
     kprintf_attr(0x0C, "attr %d", 5);
     CHECK(strcmp(vga_log, "attr 5") == 0, "attr variant formats");
 
+    reset_logs();
+    kprintf("[%02x] [%04x]", 0xau, 0x123u);
+    CHECK(strcmp(vga_log, "[0a] [0123]") == 0, "zero-padded hex widths");
+
+    reset_logs();
+    kprintf("[%02x]", 0x123u);
+    CHECK(strcmp(vga_log, "[123]") == 0, "width is a minimum, not a cap");
+
+    reset_logs();
+    kprintf("[%5d] [%-s]", 42, "x");
+    CHECK(strcmp(vga_log, "[   42] [%-s]") == 0, "space-padded width; no left-align flag");
+
+    reset_logs();
+    kprintf("[%05d]", -42);
+    CHECK(strcmp(vga_log, "[-0042]") == 0, "zero pad after the sign");
+
+    reset_logs();
+    kprintf("[%08llx]", 0xabcdefull);
+    CHECK(strcmp(vga_log, "[00abcdef]") == 0, "zero-padded 64-bit hex");
+
+    reset_logs();
+    kprintf("[%6s]", "hi");
+    CHECK(strcmp(vga_log, "[    hi]") == 0, "space-padded string width");
+
     TEST_RESULTS();
 }
