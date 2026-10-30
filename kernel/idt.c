@@ -139,6 +139,11 @@ void idt_init(void) {
     idt_set(46, (uint32_t)irq14, 0x08, 0x8E);
     idt_set(47, (uint32_t)irq15, 0x08, 0x8E);
 
+    /* every remaining vector gets a catch-all stub that reports its number */
+    extern uint32_t isr_default_table[];
+    for (int v = 48; v < 256; v++)
+        idt_set((uint8_t)v, isr_default_table[v - 48], 0x08, 0x8E);
+
     __asm__ volatile ("lidt %0" : : "m"(idtp));
 }
 
@@ -181,6 +186,15 @@ void isr_handler(struct registers *regs) {
     }
     if (handlers[regs->int_no])
         handlers[regs->int_no](regs);
+    else if (regs->int_no >= 48) {
+        /* catch-all: log each unexpected vector once, then keep going */
+        static uint8_t seen[32];
+        uint8_t n = regs->int_no;
+        if (!(seen[n / 8] & (1u << (n % 8)))) {
+            seen[n / 8] |= (uint8_t)(1u << (n % 8));
+            kprintf_attr(ATTR_WARN, "unhandled interrupt %d\n", n);
+        }
+    }
 }
 
 void irq_handler(struct registers *regs) {
