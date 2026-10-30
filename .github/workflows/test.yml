@@ -13,3 +13,5 @@ jobs:
         run: ./tests/host/run_tests.sh
       - name: QEMU boot test
         run: ./tests/run-qemu-tests.sh
+      - name: Doc claims match reality
+        run: ./tests/check-docs.sh

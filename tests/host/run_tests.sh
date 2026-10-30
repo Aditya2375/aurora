@@ -19,7 +19,11 @@ cc $CFLAGS -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Ikernel -Ikernel/l
 cc $CFLAGS -I. -Ikernel -Ikernel/lib \
     tests/host/test_kprint.c -o "$OUT/test_kprint"
 
+cc $CFLAGS -I. -Ikernel -Ikernel/lib \
+    tests/host/test_vga.c kernel/lib/string.c -o "$OUT/test_vga"
+
 "$OUT/test_string"
 "$OUT/test_pmm_heap"
 "$OUT/test_kprint"
+"$OUT/test_vga"
 echo "ALL HOST TESTS PASSED"

@@ -14,8 +14,10 @@ library, no starter code - every byte on the boot disk comes from this tree.
   EDD packet reads, enables A20, records the E820 memory map, installs a flat
   GDT, enters protected mode, copies the kernel to 1 MiB, and turns on
   identity paging (4 MiB pages, low 128 MiB).
-- Kernel takes over: zeroes .bss, installs its own GDT and a full 256-entry
-  IDT, remaps the PIC, and starts the timer (100 Hz) and keyboard IRQs.
+- Kernel takes over: zeroes .bss, installs its own GDT and a 256-entry IDT
+  (all 32 CPU exceptions, the 16 remapped PIC IRQs, and a catch-all stub
+  that logs any other vector by number), remaps the PIC, and starts the
+  timer (100 Hz) and keyboard IRQs.
 - Memory: E820-driven bitmap physical page allocator (4 KiB frames,
   contiguous runs supported) with a best-fit free-list kernel heap on top.
 - Shell: `help`, `about`, `mem`, `alloc N`, `uptime`, `echo`, `history`,
@@ -45,7 +47,7 @@ free pages and heap state; `halt` stops the CPU.
 ## Test
 
 ```sh
-./tests/host/run_tests.sh    # 198 unit checks: string, PMM, heap, printf
+./tests/host/run_tests.sh    # 216 unit checks: string, PMM, heap, printf, VGA
 ./tests/run-qemu-tests.sh    # boots the real image, asserts serial markers
 ```
 
@@ -70,7 +72,7 @@ memory map in detail.
 
 ## Tested / not tested
 
-Tested here: the host unit suite (198 checks: physical/page/heap allocators,
+Tested here: the host unit suite (216 checks: physical/page/heap allocators,
 string and printf logic), a scripted QEMU boot that asserts the shell banner,
 memory map, and command handling over the serial log, and an interactive
 keystroke session driven through the QEMU monitor with screenshots.
