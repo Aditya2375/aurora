@@ -166,15 +166,15 @@ void isr_handler(struct registers *regs) {
         }
         __asm__ volatile ("cli");
         kprintf_attr(ATTR_ERR, "\n*** KERNEL EXCEPTION: %s (int %d, err %d)\n",
-                     name, (long long)regs->int_no, (long long)regs->err_code);
+                     name, regs->int_no, regs->err_code);
         kprintf_attr(ATTR_ERR, "    eip=%x cs=%x eflags=%x\n",
-                     (long long)regs->eip, (long long)regs->cs, (long long)regs->eflags);
+                     regs->eip, regs->cs, regs->eflags);
         kprintf_attr(ATTR_ERR, "    eax=%x ebx=%x ecx=%x edx=%x\n",
-                     (long long)regs->eax, (long long)regs->ebx,
-                     (long long)regs->ecx, (long long)regs->edx);
+                     regs->eax, regs->ebx,
+                     regs->ecx, regs->edx);
         kprintf_attr(ATTR_ERR, "    esi=%x edi=%x ebp=%x esp=%x\n",
-                     (long long)regs->esi, (long long)regs->edi,
-                     (long long)regs->ebp, (long long)regs->esp);
+                     regs->esi, regs->edi,
+                     regs->ebp, regs->esp);
         kprintf_attr(ATTR_ERR, "    system halted.\n");
         for (;;)
             __asm__ volatile ("hlt");

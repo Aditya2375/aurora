@@ -48,7 +48,7 @@ static void read_line(char *line) {
         }
         if (len < LINE_MAX - 1) {
             line[len++] = c;
-            kprintf("%c", (long long)c);
+            kprintf("%c", (int)c);
         }
     }
 }
@@ -77,11 +77,11 @@ static void cmd_about(void) {
 }
 
 static void cmd_mem(void) {
-    kprintf("e820 total memory : %u MiB\n", (unsigned long long)(pmm_total_memory() / (1024 * 1024)));
+    kprintf("e820 total memory : %u MiB\n", (unsigned)(pmm_total_memory() / (1024 * 1024)));
     kprintf("pmm free pages    : %u of %u\n",
-            (unsigned long long)pmm_free_blocks(), (unsigned long long)pmm_usable_blocks());
+            (unsigned)pmm_free_blocks(), (unsigned)pmm_usable_blocks());
     kprintf("heap              : %u bytes used, %u bytes mapped\n",
-            (unsigned long long)heap_used(), (unsigned long long)heap_total());
+            (unsigned)heap_used(), (unsigned)heap_total());
     kprintf("heap integrity    : %s\n", heap_check() ? "ok" : "BROKEN");
 }
 
@@ -91,7 +91,7 @@ static void cmd_uptime(void) {
     uint64_t s = (t / TIMER_HZ) % 60;
     uint64_t m = (t / (TIMER_HZ * 60)) % 60;
     uint64_t h = t / (TIMER_HZ * 3600);
-    kprintf("up %u:%u%u:%u%u.%u%u\n",
+    kprintf("up %llu:%llu%llu:%llu%llu.%llu%llu\n",
             (unsigned long long)h,
             (unsigned long long)(m / 10), (unsigned long long)(m % 10),
             (unsigned long long)(s / 10), (unsigned long long)(s % 10),
@@ -101,7 +101,7 @@ static void cmd_uptime(void) {
 static void cmd_color(void) {
     for (int bg = 0; bg < 8; bg++) {
         for (int fg = 0; fg < 16; fg++)
-            kprintf_attr(VGA_ATTR(fg, bg), "%c", (long long)0xDB);
+            kprintf_attr(VGA_ATTR(fg, bg), "%c", (int)0xDB);
         kprintf("\n");
     }
 }
@@ -123,16 +123,16 @@ static void cmd_alloc(const char *arg) {
     }
     void *p = kmalloc((size_t)n);
     if (!p) {
-        kprintf_attr(ATTR_ERR, "kmalloc(%u) failed\n", (unsigned long long)n);
+        kprintf_attr(ATTR_ERR, "kmalloc(%u) failed\n", (unsigned)n);
         return;
     }
     memset(p, 0x5A, (size_t)n);     /* touch every page */
     kprintf("kmalloc(%u) -> 0x%x, touched, heap check %s, freeing\n",
-            (unsigned long long)n, (unsigned long long)(uint32_t)p,
+            (unsigned)n, (unsigned)(uint32_t)p,
             heap_check() ? "ok" : "BROKEN");
     kfree(p);
     kprintf("freed, heap check %s, heap used %u bytes\n",
-            heap_check() ? "ok" : "BROKEN", (unsigned long long)heap_used());
+            heap_check() ? "ok" : "BROKEN", (unsigned)heap_used());
 }
 
 static void execute(char *line) {
@@ -162,7 +162,7 @@ static void execute(char *line) {
     else if (strcmp(line, "clear") == 0)    vga_clear();
     else if (strcmp(line, "history") == 0) {
         for (int i = 0; i < hist_len; i++)
-            kprintf("  %d  %s\n", (long long)(i + 1), history[i]);
+            kprintf("  %d  %s\n", i + 1, history[i]);
     }
     else if (strcmp(line, "halt") == 0) {
         kprintf_attr(ATTR_WARN, "halting\n");

@@ -73,8 +73,8 @@ void kmain(void) {
 
     banner();
     kprintf("detected memory: %u MiB, free pages: %u\n",
-            (unsigned long long)(pmm_total_memory() / (1024 * 1024)),
-            (unsigned long long)pmm_free_blocks());
+            (unsigned)(pmm_total_memory() / (1024 * 1024)),
+            (unsigned)pmm_free_blocks());
     kprintf_attr(ATTR_OK, "boot self-tests passed. ");
     kprintf("type 'help' for commands.\n\n");
 

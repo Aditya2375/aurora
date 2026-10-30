@@ -33,15 +33,15 @@ int main(void) {
     CHECK(strcmp(serial_log, "hello world") == 0, "serial mirrors vga");
 
     reset_logs();
-    kprintf("%d %d %d", (long long)0, (long long)42, (long long)-7);
+    kprintf("%d %d %d", 0, 42, -7);
     CHECK(strcmp(vga_log, "0 42 -7") == 0, "signed decimals");
 
     reset_logs();
-    kprintf("%u", (unsigned long long)4294967295ull);
+    kprintf("%u", 4294967295u);
     CHECK(strcmp(vga_log, "4294967295") == 0, "unsigned max");
 
     reset_logs();
-    kprintf("%x %x", (unsigned long long)0xDEADBEEF, (unsigned long long)0);
+    kprintf("%x %x", 0xDEADBEEFu, 0u);
     CHECK(strcmp(vga_log, "deadbeef 0") == 0, "hex");
 
     reset_logs();
@@ -49,23 +49,30 @@ int main(void) {
     CHECK(strcmp(vga_log, "100%") == 0, "percent escape");
 
     reset_logs();
-    kprintf("%c%c%c", (long long)'O', (long long)'S', (long long)'!');
+    kprintf("%c%c%c", 'O', 'S', '!');
     CHECK(strcmp(vga_log, "OS!") == 0, "chars");
 
     reset_logs();
-    kprintf("%s", (const char *)0);
+    { const char *volatile nothing = 0; kprintf("%s", nothing); }
     CHECK(strcmp(vga_log, "(null)") == 0, "null string guarded");
 
     reset_logs();
-    kprintf("%d", (long long)(-9223372036854775807ll - 1));   /* LLONG_MIN */
+    kprintf("%lld", -9223372036854775807ll - 1);   /* LLONG_MIN, no negation UB */
     CHECK(strcmp(vga_log, "-9223372036854775808") == 0, "LLONG_MIN no overflow");
 
     reset_logs();
-    kprintf("tail%z", (long long)1);                         /* unknown specifier */
-    CHECK(strcmp(vga_log, "tail%z") == 0, "unknown specifier passed through");
+    kprintf("%d", -2147483647 - 1);                 /* INT_MIN through the int path */
+    CHECK(strcmp(vga_log, "-2147483648") == 0, "INT_MIN no overflow");
 
     reset_logs();
-    kprintf_attr(0x0C, "attr %d", (long long)5);
+    {   /* unknown specifier: non-literal format, passed through untouched */
+        char dynfmt[] = "tail%z";
+        kprintf(dynfmt, 0);   /* extra arg ignored */
+        CHECK(strcmp(vga_log, "tail%z") == 0, "unknown specifier passed through");
+    }
+
+    reset_logs();
+    kprintf_attr(0x0C, "attr %d", 5);
     CHECK(strcmp(vga_log, "attr 5") == 0, "attr variant formats");
 
     TEST_RESULTS();

@@ -1,11 +1,13 @@
 #ifndef AURORA_KPRINT_H
 #define AURORA_KPRINT_H
 
-/* Format subset: %s %c %d %u %x %%. Numeric specifiers always read a
- * (signed/unsigned) long long from the varargs - cast arguments, as every
- * kernel call site does. This keeps 64-bit values printable with no
- * length modifiers. */
+/* Format subset: %s %c %d %u %x %% with the usual C widths, plus %lld
+ * %llu %llx for 64-bit values. The printf format attribute lets gcc
+ * check every call site: a plain int passed to %d just works, and a
+ * mismatched argument is a build error. */
+__attribute__((format(printf, 1, 2)))
 void kprintf(const char *fmt, ...);
+__attribute__((format(printf, 2, 3)))
 void kprintf_attr(unsigned char attr, const char *fmt, ...);
 
 /* VGA attributes used by the shell UI */

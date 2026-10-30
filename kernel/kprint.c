@@ -33,6 +33,13 @@ static void kvprintf(unsigned char attr, const char *fmt, va_list ap) {
         p++;
         if (!*p)
             break;
+        int llong = 0;
+        if (*p == 'l' && p[1] == 'l') {
+            llong = 1;
+            p += 2;
+            if (!*p)
+                break;
+        }
         switch (*p) {
         case 's': {
             const char *s = va_arg(ap, const char *);
@@ -46,19 +53,22 @@ static void kvprintf(unsigned char attr, const char *fmt, va_list ap) {
             out[len++] = (char)va_arg(ap, int);
             break;
         case 'd': {
-            long long v = va_arg(ap, long long);
-            if (v < 0) {
+            long long v = llong ? va_arg(ap, long long) : va_arg(ap, int);
+            /* negate in the unsigned domain: INT64_MIN has no positive twin */
+            unsigned long long uv = v < 0 ? 0ull - (unsigned long long)v
+                                          : (unsigned long long)v;
+            if (v < 0)
                 out[len++] = '-';
-                v = -v;
-            }
-            u64_to_str((unsigned long long)v, out, 10, &len);
+            u64_to_str(uv, out, 10, &len);
             break;
         }
         case 'u':
-            u64_to_str(va_arg(ap, unsigned long long), out, 10, &len);
+            u64_to_str(llong ? va_arg(ap, unsigned long long) : va_arg(ap, unsigned),
+                       out, 10, &len);
             break;
         case 'x':
-            u64_to_str(va_arg(ap, unsigned long long), out, 16, &len);
+            u64_to_str(llong ? va_arg(ap, unsigned long long) : va_arg(ap, unsigned),
+                       out, 16, &len);
             break;
         case '%':
             out[len++] = '%';
