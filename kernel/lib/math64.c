@@ -37,20 +37,20 @@ unsigned long long __umoddi3(unsigned long long num, unsigned long long den) {
     return rem;
 }
 
+/* negate in the unsigned domain: -LLONG_MIN is undefined in signed C */
+static unsigned long long abs64(long long v) {
+    return v < 0 ? 0ull - (unsigned long long)v : (unsigned long long)v;
+}
+
 long long __divdi3(long long num, long long den) {
-    int neg = 0;
-    if (num < 0) { num = -num; neg = !neg; }
-    if (den < 0) { den = -den; neg = !neg; }
-    long long q = (long long)__udivmoddi4((unsigned long long)num,
-                                          (unsigned long long)den, 0);
-    return neg ? -q : q;
+    int neg = (num < 0) != (den < 0);
+    long long q = (long long)__udivmoddi4(abs64(num), abs64(den), 0);
+    return neg ? (long long)(0ull - (unsigned long long)q) : q;
 }
 
 long long __moddi3(long long num, long long den) {
     unsigned long long rem = 0;
     int neg = num < 0;
-    if (neg) num = -num;
-    if (den < 0) den = -den;
-    __udivmoddi4((unsigned long long)num, (unsigned long long)den, &rem);
-    return neg ? -(long long)rem : (long long)rem;
+    __udivmoddi4(abs64(num), abs64(den), &rem);
+    return neg ? (long long)(0ull - rem) : (long long)rem;
 }
