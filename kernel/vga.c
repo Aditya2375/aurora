@@ -2,7 +2,10 @@
 #include "string.h"
 #include "ports.h"
 
-#define VGA_MEM   ((volatile uint16_t *)0x000B8000)
+#ifndef VGA_MEM_ADDR
+#define VGA_MEM_ADDR 0x000B8000
+#endif
+#define VGA_MEM   ((volatile uint16_t *)VGA_MEM_ADDR)
 #define VGA_COLS  80
 #define VGA_ROWS  25
 
@@ -10,6 +13,7 @@ static uint8_t cur_attr = 0x07;
 static int cur_row = 0;
 static int cur_col = 0;
 
+#ifndef VGA_NO_HW_CURSOR
 static void hw_cursor_update(void) {
     uint16_t pos = (uint16_t)(cur_row * VGA_COLS + cur_col);
     outb(0x3D4, 0x0F);
@@ -17,6 +21,9 @@ static void hw_cursor_update(void) {
     outb(0x3D4, 0x0E);
     outb(0x3D5, (uint8_t)(pos >> 8));
 }
+#else
+static void hw_cursor_update(void) { }
+#endif
 
 void vga_set_attr(uint8_t attr) { cur_attr = attr; }
 uint8_t vga_get_attr(void) { return cur_attr; }
@@ -52,6 +59,10 @@ void vga_putc(char c) {
     } else if (c == '\b') {
         if (cur_col > 0)
             cur_col--;
+        else if (cur_row > 0) {         /* wrapped line: step back up a row */
+            cur_row--;
+            cur_col = VGA_COLS - 1;
+        }
         VGA_MEM[cur_row * VGA_COLS + cur_col] = ((uint16_t)cur_attr << 8) | ' ';
     } else {
         VGA_MEM[cur_row * VGA_COLS + cur_col] = ((uint16_t)cur_attr << 8) | (uint8_t)c;
@@ -65,7 +76,9 @@ void vga_putc(char c) {
         scroll();
         cur_row--;
     }
+#ifndef VGA_NO_HW_CURSOR
     hw_cursor_update();
+#endif
 }
 
 void vga_write(const char *s) {

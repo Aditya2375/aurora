@@ -111,15 +111,27 @@ static void cmd_alloc(const char *arg) {
         kprintf("usage: alloc <bytes>\n");
         return;
     }
+    #define ALLOC_MAX (64ll * 1024 * 1024)
     long long n = 0;
+    int overflow = 0;
     for (const char *p = arg; *p; p++) {
         if (*p < '0' || *p > '9') {
             kprintf("usage: alloc <bytes>\n");
             return;
         }
-        n = n * 10 + (*p - '0');
-        if (n > 64 * 1024 * 1024)
+        if (n > (ALLOC_MAX - 9) / 10) {     /* next digit would pass the cap */
+            overflow = 1;
             break;
+        }
+        n = n * 10 + (*p - '0');
+    }
+    if (overflow) {
+        kprintf_attr(ATTR_ERR, "alloc: too large (max %lld bytes)\n", ALLOC_MAX);
+        return;
+    }
+    if (n <= 0) {
+        kprintf("usage: alloc <bytes>\n");
+        return;
     }
     void *p = kmalloc((size_t)n);
     if (!p) {
