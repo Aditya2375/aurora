@@ -29,10 +29,11 @@ static uint8_t *arena;
 
 
 static void setup(void) {
-    fake_count = 3;
+    fake_count = 4;
     fake_map[0] = (struct e820_entry){0x00000000, 0x0009FC00, 1, 1};  /* low RAM */
     fake_map[1] = (struct e820_entry){0x00100000, 64u * 1024 * 1024, 1, 1};
     fake_map[2] = (struct e820_entry){0x02000000, 0x00100000, 2, 1};   /* reserved */
+    fake_map[3] = (struct e820_entry){0x04000000, 0x00100000, 1, 0};   /* ACPI-disabled */
     arena = malloc(80u * 1024 * 1024);
     if (!arena) { printf("arena alloc failed\n"); exit(1); }
     pmm_init();
@@ -60,6 +61,18 @@ int main(void) {
     CHECK(pmm_free_blocks() == f0, "double free is a no-op");
     pmm_free(0xDEAD0000);                          /* out of managed range */
     CHECK(pmm_free_blocks() == f0, "wild free rejected");
+    pmm_free(0x02000000);                          /* a reserved (type 2) frame */
+    CHECK(pmm_free_blocks() == f0, "freeing a reserved frame is a no-op");
+    {   /* the reserved frame must never come back from the allocator */
+        int leaked = 0;
+        uint32_t got[64];
+        for (int i = 0; i < 64; i++) {
+            got[i] = pmm_alloc();
+            if (got[i] >= 0x02000000 && got[i] < 0x02100000) leaked = 1;
+        }
+        CHECK(!leaked, "reserved frame stays unallocatable");
+        for (int i = 0; i < 64; i++) pmm_free(got[i]);
+    }
 
     uint32_t run = pmm_alloc_contig(300);
     CHECK(run != 0, "contiguous 300-page run exists");

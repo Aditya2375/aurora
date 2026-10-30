@@ -32,6 +32,9 @@ extern uint8_t _bss_end;
 #endif
 
 static uint8_t bitmap[BITMAP_BYTES];
+/* Blocks pmm_alloc has handed out; pmm_free only accepts these, so
+ * freeing a reserved or never-allocated frame cannot corrupt the map. */
+static uint8_t alloc_map[BITMAP_BYTES];
 static uint32_t n_usable_blocks = 0;
 static uint32_t n_free_blocks = 0;
 static uint32_t total_memory = 0;
@@ -39,6 +42,9 @@ static uint32_t total_memory = 0;
 static inline void bit_set(uint32_t i)   { bitmap[i / 8] |=  (uint8_t)(1u << (i % 8)); }
 static inline void bit_clear(uint32_t i) { bitmap[i / 8] &= (uint8_t)~(1u << (i % 8)); }
 static inline int  bit_test(uint32_t i)  { return (bitmap[i / 8] >> (i % 8)) & 1; }
+static inline int  alloc_test(uint32_t i)      { return (alloc_map[i / 8] >> (i % 8)) & 1; }
+static inline void alloc_set(uint32_t i)       { alloc_map[i / 8] |=  (uint8_t)(1u << (i % 8)); }
+static inline void alloc_clear(uint32_t i)     { alloc_map[i / 8] &= (uint8_t)~(1u << (i % 8)); }
 
 void pmm_init(void) {
     uint16_t count = *(volatile uint16_t *)E820_COUNT_ADDR;
@@ -48,10 +54,14 @@ void pmm_init(void) {
 
     /* Everything starts reserved; free only regions the firmware says are usable. */
     memset(bitmap, 0xFF, sizeof(bitmap));
+    memset(alloc_map, 0, sizeof(alloc_map));
 
     for (uint32_t i = 0; i < count; i++) {
         uint64_t end = map[i].base + map[i].length;
         if (map[i].type != 1)
+            continue;
+        /* ACPI 3.0 extended attribute bit 0: clear means ignore the entry. */
+        if ((map[i].acpi & 1u) == 0)
             continue;
         if (end > total_memory)
             total_memory = (uint32_t)(end > 0xFFFFFFFFull ? 0xFFFFFFFFull : end);
@@ -99,6 +109,7 @@ uint32_t pmm_alloc(void) {
     for (uint32_t b = 0; b < MAX_BLOCKS; b++) {
         if (!bit_test(b)) {
             bit_set(b);
+            alloc_set(b);
             n_free_blocks--;
             return b * PMM_BLOCK_SIZE;
         }
@@ -110,10 +121,11 @@ void pmm_free(uint32_t addr) {
     if (addr == 0 || addr >= BITMAP_LIMIT)
         return;
     uint32_t b = addr / PMM_BLOCK_SIZE;
-    if (bit_test(b)) {
-        bit_clear(b);
-        n_free_blocks++;
-    }
+    if (!alloc_test(b))
+        return;             /* reserved, or never allocated: refuse */
+    alloc_clear(b);
+    bit_clear(b);
+    n_free_blocks++;
 }
 
 uint32_t pmm_total_memory(void)  { return total_memory; }
@@ -132,8 +144,10 @@ uint32_t pmm_alloc_contig(uint32_t npages) {
         run++;
         if (run == npages) {
             uint32_t base = b - npages + 1;
-            for (uint32_t i = base; i <= b; i++)
+            for (uint32_t i = base; i <= b; i++) {
                 bit_set(i);
+                alloc_set(i);
+            }
             n_free_blocks -= npages;
             return base * PMM_BLOCK_SIZE;
         }
