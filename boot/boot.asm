@@ -3,7 +3,8 @@
 ;
 ; Loaded by the BIOS at 0000:7C00. Loads the stage 2 loader and the kernel
 ; image (the "blob", LBA 1 onwards) to physical 0x10000 using int 13h EDD
-; packet reads, then jumps to the loader.
+; packet reads capped to the next 64KB DMA boundary, then jumps to the
+; loader.
 ; -----------------------------------------------------------------------------
 [BITS 16]
 [ORG 0x7C00]
@@ -11,7 +12,7 @@
 %include "defines.inc"
 
 %define LOAD_SEG 0x1000
-%define CHUNK    127              ; max sectors per EDD packet read
+%define CHUNK    127              ; max sectors per EDD packet read (BIOS-quirk safe)
 
 start:
     cli
@@ -43,9 +44,25 @@ start:
     mov ax, [remaining]
     test ax, ax
     jz  .done
+    ; An EDD transfer must not cross a 64KB DMA boundary. The buffer is
+    ; always at offset 0 of dap_seg, so the offset within the current 64KB
+    ; window is (seg*16) mod 65536; cap the chunk to the sectors left
+    ; before the boundary (a 127-sector chunk would cross it once the blob
+    ; is larger than ~64KB).
+    mov bx, [dap_seg]
+    shl bx, 4                     ; physical & 0xFFFF (dap_off stays 0)
+    mov cx, 0
+    sub cx, bx                    ; bytes to the next 64KB boundary
+    shr cx, 9                     ; ... in sectors (0 when aligned)
     cmp ax, CHUNK
-    jbe .count_ok
+    jbe .cap_chunk
     mov ax, CHUNK
+.cap_chunk:
+    test cx, cx
+    jz  .count_ok                 ; boundary-aligned: CHUNK already caps it
+    cmp ax, cx
+    jbe .count_ok
+    mov ax, cx
 .count_ok:
     mov [dap_count], ax
 
