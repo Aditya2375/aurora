@@ -28,7 +28,7 @@ static const char map_upper[128] = {
 
 static volatile char buf[BUF_SIZE];
 static volatile int head = 0, tail = 0;
-static bool shift = false;
+static bool lshift = false, rshift = false;
 static bool caps = false;
 
 static void buf_push(char c) {
@@ -52,8 +52,12 @@ static void kbd_callback(struct registers *regs) {
     bool released = (sc & 0x80) != 0;
     sc &= 0x7F;
 
-    if (sc == 0x2A || sc == 0x36) {
-        shift = !released;
+    if (sc == 0x2A) {       /* left shift */
+        lshift = !released;
+        return;
+    }
+    if (sc == 0x36) {       /* right shift */
+        rshift = !released;
         return;
     }
     if (sc == 0x3A) {
@@ -64,6 +68,7 @@ static void kbd_callback(struct registers *regs) {
     if (released)
         return;
 
+    bool shift = lshift || rshift;
     char c = shift ? map_upper[sc] : map_lower[sc];
     if (c >= 'a' && c <= 'z' && caps)
         c = (char)(shift ? c + 32 : c - 32);
