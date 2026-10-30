@@ -67,3 +67,13 @@ docs/        architecture notes
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the boot sequence and
 memory map in detail.
+
+## Tested / not tested
+
+Tested here: the host unit suite (198 checks: physical/page/heap allocators,
+string and printf logic), a scripted QEMU boot that asserts the shell banner,
+memory map, and command handling over the serial log, and an interactive
+keystroke session driven through the QEMU monitor with screenshots.
+
+Not tested: booting on bare metal (QEMU only), long-running stability,
+and any hardware beyond QEMU's emulated VGA, keyboard, PIC, PIT, and serial.
