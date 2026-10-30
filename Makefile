@@ -39,8 +39,8 @@ $(BUILD)/defines.inc: $(BUILD)/kernel.bin
 	  echo "%define LOADER_SECTORS 8"; \
 	  echo "%define KERNEL_SECTORS $$KS"; \
 	  echo "%define KERNEL_SIZE ($$KS*512)"; \
-	  echo "%define BLOB_SECTORS (8+$$KS)"; } > $@
-	@echo "kernel: $$(stat -c%s $<) bytes, $$KS sectors"
+	  echo "%define BLOB_SECTORS (8+$$KS)"; } > $@; \
+	  echo "kernel: $$(stat -c%s $<) bytes, $$KS sectors"
 
 $(BUILD)/boot.bin: boot/boot.asm $(BUILD)/defines.inc
 	$(NASM) -f bin -I$(BUILD)/ $< -o $@
