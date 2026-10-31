@@ -25,7 +25,7 @@
 |-----------------------|----------------------------------------|
 | `0x0000 - 0x4EFF`     | IVT, BIOS data area                    |
 | `0x4FF0 - 0x5000`     | E820 entry count                       |
-| `0x5000 - 0x5400`     | E820 table (64 entries x 24 bytes)     |
+| `0x5000 - 0x5600`     | E820 table (64 entries x 24 bytes)     |
 | `0x7C00 - 0x7E00`     | boot sector (transient)                |
 | `0x10000 - 0x11000`   | stage-2 loader (transient)             |
 | `0x50000 - 0x51000`   | page directory                         |
