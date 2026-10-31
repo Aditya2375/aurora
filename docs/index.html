@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>aurora - a hobby OS, booting in your browser</title>
+<style>
+  :root { --bg: #0d1117; --panel: #161b22; --edge: #30363d; --fg: #7ee787; --dim: #8b949e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 14px/1.5 "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h1 .star { color: var(--dim); font-weight: normal; }
+  p.sub { color: var(--dim); margin: 0 0 20px; }
+  a { color: #58a6ff; }
+  .panel { background: #000; border: 1px solid var(--edge); border-radius: 8px;
+           padding: 12px; display: inline-block; }
+  #hint { color: var(--dim); margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>aurora <span class="star">- an x86 operating system</span></h1>
+  <p class="sub">The real thing: aurora's boot sector, protected-mode loader and kernel,
+     built into the same 27 KB image the repo's Makefile produces, booting here in an
+     x86 PC emulator (<a href="https://github.com/copy/v86">v86</a>) running as
+     WebAssembly. Nothing is simulated at the OS level - every byte on screen came out of
+     the kernel's own VGA driver. <a href="https://github.com/Aditya2375/aurora">Source on GitHub</a>.</p>
+
+  <div class="panel">
+    <div id="screen_container" style="display: inline-block;">
+      <div style="white-space: pre; font: 14px/14px 'SF Mono', ui-monospace, Menlo, Consolas, monospace;"></div>
+      <canvas style="display: none;"></canvas>
+    </div>
+  </div>
+  <p id="hint">Click the screen, then type. Try: <b>help</b>, <b>mem</b>, <b>uptime</b>, <b>clear</b>.
+     The keyboard is captured only while the screen has focus.</p>
+</main>
+
+<script src="libv86.js"></script>
+<script>
+  new V86({
+    wasm_path: "v86.wasm",
+    memory_size: 128 * 1024 * 1024,
+    vga_memory_size: 8 * 1024 * 1024,
+    screen_container: document.getElementById("screen_container"),
+    bios: { url: "seabios.bin" },
+    vga_bios: { url: "vgabios.bin" },
+    hda: { url: "aurora.img" },
+    autostart: true,
+  });
+</script>
+</body>
+</html>

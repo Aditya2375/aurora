@@ -5,6 +5,9 @@ protected mode, identity paging, physical and virtual memory management,
 interrupt-driven drivers, and an interactive shell. No GRUB, no standard
 library, no starter code - every byte on the boot disk comes from this tree.
 
+**[Boot Aurora in your browser](https://aditya2375.github.io/aurora/)** - the real disk
+image running in an x86 PC emulator compiled to WebAssembly. Type `help` at the prompt.
+
 ![Aurora booting to its shell in QEMU](docs/screenshot.png)
 
 ## What it does
