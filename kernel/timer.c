@@ -18,12 +18,21 @@ void timer_init(void) {
     irq_enable(0);
 }
 
+/* ticks is 64-bit but the CPU is 32-bit: a plain read can catch the
+   value halfway through an IRQ increment. Read until the high word is
+   stable, the usual seqlock pattern, so callers never see a torn tick. */
 uint64_t timer_ticks(void) {
-    return ticks;
+    uint32_t hi, lo, hi2;
+    do {
+        hi = (uint32_t)(ticks >> 32);
+        lo = (uint32_t)ticks;
+        hi2 = (uint32_t)(ticks >> 32);
+    } while (hi != hi2);
+    return ((uint64_t)hi << 32) | lo;
 }
 
 void timer_sleep(uint64_t ms) {
-    uint64_t target = ticks + (ms * TIMER_HZ + 999) / 1000;
-    while (ticks < target)
+    uint64_t target = timer_ticks() + (ms * TIMER_HZ + 999) / 1000;
+    while (timer_ticks() < target)
         __asm__ volatile ("hlt");
 }
