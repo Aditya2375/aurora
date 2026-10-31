@@ -99,5 +99,24 @@ int main(void) {
     kprintf("[%6s]", "hi");
     CHECK(strcmp(vga_log, "[    hi]") == 0, "space-padded string width");
 
+    reset_logs();
+    /* a wide conversion at the end of a nearly-full line must truncate
+       against the 512-byte buffer, never overflow it */
+    {   char big[600];
+        memset(big, 'a', sizeof big - 1);
+        big[sizeof big - 1] = 0;
+        kprintf("%s%d", big, 42);
+        CHECK(strlen(vga_log) == 511, "long line truncated to the buffer");
+        CHECK(vga_log[510] == 'a', "truncation is clean, digits dropped");
+    }
+
+    reset_logs();
+    {   char big[600];
+        memset(big, 'b', 500);
+        big[500] = 0;
+        kprintf("%s%064llu", big, 42ull);   /* pad loop would overflow by ~50 */
+        CHECK(strlen(vga_log) == 511, "wide padded number truncated safely");
+    }
+
     TEST_RESULTS();
 }

@@ -19,15 +19,22 @@ static void u64_to_str(unsigned long long v, char *buf, int base, int *len) {
         buf[(*len)++] = tmp[--i];
 }
 
+/* bounded emit: nothing past cap-1 ever lands in the buffer, however
+   wide the width specifier or long the digits */
+static void outc(char *out, int cap, int *len, char c) {
+    if (*len < cap - 1)
+        out[(*len)++] = c;
+}
+
 static void kvprintf(unsigned char attr, const char *fmt, va_list ap) {
     unsigned char saved = vga_get_attr();
     vga_set_attr(attr);
     char out[512];
     int len = 0;
 
-    for (const char *p = fmt; *p && len < (int)sizeof(out) - 16; p++) {
+    for (const char *p = fmt; *p; p++) {
         if (*p != '%') {
-            out[len++] = *p;
+            outc(out, (int)sizeof out, &len, *p);
             continue;
         }
         p++;
@@ -90,14 +97,14 @@ static void kvprintf(unsigned char attr, const char *fmt, va_list ap) {
             int i = 0;
             if (pad > 0 && !zero_pad)
                 for (int k = 0; k < pad; k++)
-                    out[len++] = ' ';
+                    outc(out, (int)sizeof out, &len, ' ');
             if (num[0] == '-')
-                out[len++] = num[i++];
+                outc(out, (int)sizeof out, &len, num[i++]);
             if (pad > 0 && zero_pad)
                 for (int k = 0; k < pad; k++)
-                    out[len++] = '0';
+                    outc(out, (int)sizeof out, &len, '0');
             for (; i < nlen; i++)
-                out[len++] = num[i];
+                outc(out, (int)sizeof out, &len, num[i]);
             continue;   /* next format character */
         }
         switch (*p) {
@@ -108,21 +115,21 @@ static void kvprintf(unsigned char attr, const char *fmt, va_list ap) {
             int sl = 0;
             while (s[sl])
                 sl++;
-            for (int i = sl; i < width && len < (int)sizeof(out) - 16; i++)
-                out[len++] = ' ';
-            while (*s && len < (int)sizeof(out) - 16)
-                out[len++] = *s++;
+            for (int i = sl; i < width; i++)
+                outc(out, (int)sizeof out, &len, ' ');
+            while (*s)
+                outc(out, (int)sizeof out, &len, *s++);
             break;
         }
         case 'c':
-            out[len++] = (char)va_arg(ap, int);
+            outc(out, (int)sizeof out, &len, (char)va_arg(ap, int));
             break;
         case '%':
-            out[len++] = '%';
+            outc(out, (int)sizeof out, &len, '%');
             break;
         default:
-            out[len++] = '%';
-            out[len++] = *p;
+            outc(out, (int)sizeof out, &len, '%');
+            outc(out, (int)sizeof out, &len, *p);
             break;
         }
     }
