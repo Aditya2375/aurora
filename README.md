@@ -75,7 +75,7 @@ memory map in detail.
 
 ## Tested / not tested
 
-Tested here: the host unit suite (216 checks: physical/page/heap allocators,
+Tested here: the host unit suite (219 checks: physical/page/heap allocators,
 string and printf logic), a scripted QEMU boot that asserts the shell banner,
 memory map, and command handling over the serial log, and an interactive
 keystroke session driven through the QEMU monitor with screenshots.
