@@ -50,7 +50,7 @@ free pages and heap state; `halt` stops the CPU.
 ## Test
 
 ```sh
-./tests/host/run_tests.sh    # 216 unit checks: string, PMM, heap, printf, VGA
+./tests/host/run_tests.sh    # 219 unit checks: string, PMM, heap, printf, VGA
 ./tests/run-qemu-tests.sh    # boots the real image, asserts serial markers
 ```
 
