@@ -44,9 +44,13 @@ static void kbd_callback(struct registers *regs) {
     uint8_t sc = inb(0x60);
 
     if (sc == 0xE0) {       /* extended prefix: read and ignore the next byte */
-        while ((inb(0x64) & 1) == 0)
-            ;
-        (void)inb(0x60);
+        /* bounded: a controller that never sends the second byte must not
+           hang the IRQ handler forever */
+        for (int i = 0; i < 100000; i++)
+            if (inb(0x64) & 1) {
+                (void)inb(0x60);
+                break;
+            }
         return;
     }
     bool released = (sc & 0x80) != 0;
