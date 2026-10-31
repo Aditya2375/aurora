@@ -56,6 +56,9 @@ $(BUILD)/aurora.img: $(BUILD)/boot.bin $(BUILD)/loader.bin $(BUILD)/kernel.bin
 	dd if=$(BUILD)/kernel.bin of=$@ bs=512 seek=9 conv=notrunc status=none
 	@KS=$$(( ($$(stat -c%s $(BUILD)/kernel.bin) + 511) / 512 )); \
 	truncate -s $$(( (9 + $$KS) * 512 )) $@
+	@# CHS-based emulators compute disk geometry from the size and fail on
+	@# an image smaller than one cylinder; pad tiny images so they boot.
+	@[ $$(stat -c%s $@) -lt 4194304 ] && truncate -s 4194304 $@ || true
 	@echo "image: $@"
 
 run: $(BUILD)/aurora.img
