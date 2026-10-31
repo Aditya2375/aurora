@@ -23,7 +23,7 @@
 <main>
   <h1>aurora <span class="star">- an x86 operating system</span></h1>
   <p class="sub">The real thing: aurora's boot sector, protected-mode loader and kernel,
-     built into the same 27 KB image the repo's Makefile produces, booting here in an
+     built into the same boot image the repo's Makefile produces, booting here in an
      x86 PC emulator (<a href="https://github.com/copy/v86">v86</a>) running as
      WebAssembly. Nothing is simulated at the OS level - every byte on screen came out of
      the kernel's own VGA driver. <a href="https://github.com/Aditya2375/aurora">Source on GitHub</a>.</p>
@@ -40,7 +40,7 @@
 
 <script src="libv86.js"></script>
 <script>
-  new V86({
+  window.emulator = new V86({
     wasm_path: "v86.wasm",
     memory_size: 128 * 1024 * 1024,
     vga_memory_size: 8 * 1024 * 1024,
