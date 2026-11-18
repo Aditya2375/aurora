@@ -1,0 +1,23 @@
+name: test
+on: [push, pull_request]
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y nasm gcc make binutils qemu-system-x86 python3-pip
+      - name: Install Unicorn
+        run: pip install unicorn
+      - name: Build disk image
+        run: make
+      - name: Host unit tests
+        run: ./tests/host/run_tests.sh
+      - name: Host unit tests under ASan and UBSan
+        run: EXTRA_CFLAGS="-fsanitize=address,undefined" ./tests/host/run_tests.sh
+      - name: E820 loader scenarios
+        run: python3 tests/e820.py
+      - name: QEMU integration tests
+        run: python3 tests/integration.py
+      - name: Doc claims match reality
+        run: ./tests/check-docs.sh

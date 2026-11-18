@@ -1,0 +1,174 @@
+#include "pmm.h"
+#include "string.h"
+
+/* Physical page allocator: one bitmap bit per 4 KiB frame. */
+
+/* Absolute addresses are overridable so the host test suite can inject maps. */
+#ifndef E820_COUNT_ADDR
+#define E820_COUNT_ADDR 0x00004FF0u
+#endif
+#ifndef E820_TABLE_ADDR
+#define E820_TABLE_ADDR 0x00005000u
+#endif
+#define MAX_E820        64
+/* manage only what the loader identity-maps: the low 128 MiB (4 MiB pages) */
+#define BITMAP_LIMIT    (128u * 1024u * 1024u)
+#define MAX_BLOCKS      (BITMAP_LIMIT / PMM_BLOCK_SIZE)  /* 32768 */
+#define BITMAP_BYTES    (MAX_BLOCKS / 8)                 /* 4 KiB */
+
+#ifndef AURORA_E820_ENTRY_DEFINED
+#define AURORA_E820_ENTRY_DEFINED
+struct e820_entry {
+    uint64_t base;
+    uint64_t length;
+    uint32_t type;
+    uint32_t acpi;
+} __attribute__((packed));
+#endif
+
+#ifndef AURORA_KERNEL_END
+extern uint8_t _bss_end;
+#define AURORA_KERNEL_END ((uint32_t)&_bss_end)
+#endif
+
+static uint8_t bitmap[BITMAP_BYTES];
+/* Blocks pmm_alloc has handed out; pmm_free only accepts these, so
+ * freeing a reserved or never-allocated frame cannot corrupt the map. */
+static uint8_t alloc_map[BITMAP_BYTES];
+static uint32_t n_usable_blocks = 0;
+static uint32_t n_free_blocks = 0;
+static uint32_t total_memory = 0;
+
+static inline void bit_set(uint32_t i)   { bitmap[i / 8] |=  (uint8_t)(1u << (i % 8)); }
+static inline void bit_clear(uint32_t i) { bitmap[i / 8] &= (uint8_t)~(1u << (i % 8)); }
+static inline int  bit_test(uint32_t i)  { return (bitmap[i / 8] >> (i % 8)) & 1; }
+static inline int  alloc_test(uint32_t i)      { return (alloc_map[i / 8] >> (i % 8)) & 1; }
+static inline void alloc_set(uint32_t i)       { alloc_map[i / 8] |=  (uint8_t)(1u << (i % 8)); }
+static inline void alloc_clear(uint32_t i)     { alloc_map[i / 8] &= (uint8_t)~(1u << (i % 8)); }
+
+void pmm_init(void) {
+    n_usable_blocks = n_free_blocks = total_memory = 0;
+    uint16_t count = *(volatile uint16_t *)E820_COUNT_ADDR;
+    if (count > MAX_E820)
+        count = MAX_E820;
+    const volatile struct e820_entry *map = (volatile struct e820_entry *)E820_TABLE_ADDR;
+
+    /* Everything starts reserved; free only regions the firmware says are usable. */
+    memset(bitmap, 0xFF, sizeof(bitmap));
+    memset(alloc_map, 0, sizeof(alloc_map));
+
+    for (uint32_t i = 0; i < count; i++) {
+        if (map[i].length > UINT64_MAX - map[i].base) continue;
+        uint64_t end = map[i].base + map[i].length;
+        if (map[i].type != 1)
+            continue;
+        /* ACPI 3.0 extended attribute bit 0: clear means ignore the entry. */
+        if ((map[i].acpi & 1u) == 0)
+            continue;
+        if (end > total_memory)
+            total_memory = (uint32_t)(end > 0xFFFFFFFFull ? 0xFFFFFFFFull : end);
+        if (map[i].base >= BITMAP_LIMIT) continue;
+        uint64_t first = (map[i].base + PMM_BLOCK_SIZE - 1) & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
+        uint64_t last  = end & ~(uint64_t)(PMM_BLOCK_SIZE - 1);
+        for (uint64_t a = first; a < last && a < BITMAP_LIMIT; a += PMM_BLOCK_SIZE) {
+            uint32_t b = (uint32_t)(a / PMM_BLOCK_SIZE);
+            if (bit_test(b)) {
+                bit_clear(b);
+                n_usable_blocks++;
+            }
+        }
+    }
+
+    /* Firmware reserved ranges win over overlapping usable ranges. Round
+     * outward: even a partially reserved frame must never be allocated. */
+    for (uint32_t i = 0; i < count; i++) {
+        if (map[i].type == 1 || !(map[i].acpi & 1u) ||
+            map[i].base >= BITMAP_LIMIT || !map[i].length) continue;
+        uint64_t end = map[i].length > UINT64_MAX - map[i].base ?
+                       BITMAP_LIMIT : map[i].base + map[i].length;
+        if (end > BITMAP_LIMIT) end = BITMAP_LIMIT;
+        uint32_t first = (uint32_t)(map[i].base / PMM_BLOCK_SIZE);
+        uint32_t last = (uint32_t)((end + PMM_BLOCK_SIZE - 1) / PMM_BLOCK_SIZE);
+        for (uint32_t b = first; b < last; b++) {
+            if (!bit_test(b)) { bit_set(b); n_usable_blocks--; }
+        }
+    }
+
+    /* Never hand out the low 1 MiB: IVT, BIOS data, EBDA, VGA. */
+    for (uint32_t b = 0; b < 256; b++) {
+        if (!bit_test(b)) {
+            bit_set(b);
+            n_usable_blocks--;
+        }
+    }
+
+    /* Reserve the kernel image, the page directory the loader left at 0x50000,
+     * and the kernel stack at 0x1F0000-0x200000 (see kernel/entry.asm). */
+    uint32_t kernel_end = AURORA_KERNEL_END;
+    for (uint32_t a = 0x50000; a < kernel_end && a < BITMAP_LIMIT; a += PMM_BLOCK_SIZE) {
+        uint32_t b = a / PMM_BLOCK_SIZE;
+        if (b < MAX_BLOCKS && !bit_test(b)) {
+            bit_set(b);
+            n_usable_blocks--;
+        }
+    }
+    for (uint32_t a = 0x1EF000; a < 0x200000; a += PMM_BLOCK_SIZE) {
+        uint32_t b = a / PMM_BLOCK_SIZE;
+        if (b < MAX_BLOCKS && !bit_test(b)) {
+            bit_set(b);
+            n_usable_blocks--;
+        }
+    }
+
+    n_free_blocks = n_usable_blocks;
+}
+
+uint32_t pmm_alloc(void) {
+    for (uint32_t b = 0; b < MAX_BLOCKS; b++) {
+        if (!bit_test(b)) {
+            bit_set(b);
+            alloc_set(b);
+            n_free_blocks--;
+            return b * PMM_BLOCK_SIZE;
+        }
+    }
+    return 0;               /* out of memory */
+}
+
+void pmm_free(uint32_t addr) {
+    if (addr == 0 || addr >= BITMAP_LIMIT || (addr & (PMM_BLOCK_SIZE - 1)))
+        return;
+    uint32_t b = addr / PMM_BLOCK_SIZE;
+    if (!alloc_test(b))
+        return;             /* reserved, or never allocated: refuse */
+    alloc_clear(b);
+    bit_clear(b);
+    n_free_blocks++;
+}
+
+uint32_t pmm_total_memory(void)  { return total_memory; }
+uint32_t pmm_usable_blocks(void) { return n_usable_blocks; }
+uint32_t pmm_free_blocks(void)   { return n_free_blocks; }
+
+uint32_t pmm_alloc_contig(uint32_t npages) {
+    if (npages == 0)
+        return 0;
+    uint32_t run = 0;
+    for (uint32_t b = 0; b < MAX_BLOCKS; b++) {
+        if (bit_test(b)) {
+            run = 0;
+            continue;
+        }
+        run++;
+        if (run == npages) {
+            uint32_t base = b - npages + 1;
+            for (uint32_t i = base; i <= b; i++) {
+                bit_set(i);
+                alloc_set(i);
+            }
+            n_free_blocks -= npages;
+            return base * PMM_BLOCK_SIZE;
+        }
+    }
+    return 0;
+}

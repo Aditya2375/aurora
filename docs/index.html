@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aurora - an x86 operating system in your browser</title>
+<style>
+:root{--bg:#0b0f14;--panel:#121923;--edge:#2a3646;--fg:#e6edf3;--dim:#8b98a8;--acc:#7ee787}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:28px 16px 56px}
+h1{font-size:28px;margin:0 0 6px}h1 span{color:var(--acc)}
+p.sub{color:var(--dim);margin:0 0 22px;max-width:760px}
+a{color:#58a6ff}
+.screen{background:#000;border:1px solid var(--edge);border-radius:10px;padding:12px;display:inline-block;max-width:100%;overflow:auto}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+button{background:var(--panel);color:var(--fg);border:1px solid var(--edge);border-radius:8px;padding:8px 14px;font:inherit;cursor:pointer}
+button:hover,button:focus-visible{border-color:var(--acc);outline:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:26px}
+.card{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:14px 16px}
+.card h2{font-size:15px;margin:0 0 6px;color:var(--acc)}
+.card ul{margin:0;padding-left:18px;color:var(--dim)}
+code{background:#000;padding:1px 5px;border-radius:4px}
+.warn{color:#f0b429}
+</style>
+</head>
+<body>
+<main>
+<h1><span>Aurora</span> - an x86 OS booting in your browser</h1>
+<p class="sub">A real BIOS-bootable kernel in C and assembly: protected mode, write-protected paging, a checked allocator, a RAM filesystem and a shell. The disk image below is the one the Makefile builds, running in the v86 emulator. <a href="https://github.com/Aditya2375/aurora">Source on GitHub</a>.</p>
+<div class="row" id="tour">
+  <button data-cmd="check">Run protection check</button>
+  <button data-cmd="mem">Memory</button>
+  <button data-cmd="tree">File tree</button>
+  <button data-cmd="cat /sys/security.txt">Security model</button>
+  <button data-cmd="help">Help</button>
+  <button id="reboot">Reboot</button>
+</div>
+<div class="screen"><div id="screen_container"><div style="white-space:pre;font:14px monospace"></div><canvas style="display:none"></canvas></div></div>
+<p style="color:var(--dim)">Click the screen to type, or use the buttons. Try <code>mkdir demo</code>, <code>write demo/hi.txt hello</code>, <code>cat demo/hi.txt</code>, then <code>write /sys/x y</code> to see the read-only system area refuse.</p>
+<div class="grid">
+<div class="card"><h2>Hardened</h2><ul><li>Read-only code, null page, stack guard</li><li>Bounded input, paths and files</li><li>Fail-closed bootloader memory map</li></ul></div>
+<div class="card"><h2>Not provided</h2><ul><li>User processes, ring 3, NX, ASLR</li><li>Network, accounts, disk persistence</li><li class="warn">Everything runs in ring 0</li></ul></div>
+<div class="card"><h2>Tested</h2><ul><li>Host suite, ASan/UBSan, fuzzing</li><li>Real loader assembly vs bad BIOS data</li><li>QEMU boots at 16 to 256 MiB</li></ul></div>
+</div>
+<p style="color:var(--dim);margin-top:24px">Files live in emulated RAM and disappear on reboot. Nothing you type leaves your browser. Built with v86 (BSD-2-Clause) and SeaBIOS (LGPL); see <a href="firmware/">firmware licenses</a>. MIT licensed.</p>
+</main>
+<script src="libv86.js"></script>
+<script>
+const emulator=new V86({wasm_path:"v86.wasm",memory_size:128*1024*1024,vga_memory_size:8*1024*1024,
+ screen_container:document.getElementById("screen_container"),bios:{url:"seabios.bin"},vga_bios:{url:"vgabios.bin"},
+ hda:{url:"aurora.img"},autostart:true});
+window.emulator=emulator;
+document.querySelectorAll("[data-cmd]").forEach(b=>b.addEventListener("click",()=>emulator.keyboard_send_text(b.dataset.cmd+"\n")));
+document.getElementById("reboot").addEventListener("click",()=>emulator.restart());
+</script>
+<script>
+(function(){var sc=document.querySelector(".screen"),box=document.getElementById("screen_container");
+function fit(){box.style.zoom=1;var avail=sc.parentElement.clientWidth-26,w=box.scrollWidth;
+if(w>avail&&w>0){box.style.zoom=Math.max(0.4,avail/w);}}
+window.addEventListener("resize",fit);setInterval(fit,1000);fit();})();
+</script>
+</body>
+</html>

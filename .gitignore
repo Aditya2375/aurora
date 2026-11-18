@@ -1,0 +1,4 @@
+build/
+*.o
+.local-tools/
+core
